@@ -1,0 +1,103 @@
+console_title_template = '{{ .Shell }} in {{ .Folder }}'
+version = 3
+final_space = true
+
+[palette]
+  blue = '#769ff0'
+  redwood = '#AD6A6C'
+  grey800 = '#888888'
+  grey600 = '#6a6a6a'
+  grey500 = '#394260'
+  lavender = '#B7BDF8'
+  os = '#ACB0BE'
+  pink = '#F5BDE6'
+  text = '#494D64'
+  grey100 = '#1d2230'
+  dark = '#212121'
+  grey = '#a3aed2'
+  wight = '#FFFFFF'
+  light = '#ededed'
+  black = '#323232'
+  red = '#0000ff'
+  magenta = '#00ff00'
+
+[secondary_prompt]
+  template = ' >'
+  foreground = 'grey600'
+  background = 'transparent'
+
+[transient_prompt]
+  template = '> '
+  background = 'transparent'
+  foreground_templates = ['{{if gt .Code 0}}red{{end}}', '{{if eq .Code 0}}magenta{{end}}']
+
+[[blocks]]
+  type = 'prompt'
+  alignment = 'left'
+
+  [[blocks.segments]]
+    leading_diamond = '░▒▓'
+    trailing_diamond = ''
+    template = ' {{.Icon}} '
+    foreground = 'p:black'
+    background = 'p:grey'
+    type = 'os'
+    style = 'diamond'
+
+  [[blocks.segments]]
+    template = ' {{ .HostName }} '
+    foreground = 'p:grey800'
+    powerline_symbol = ''
+    background = 'p:dark'
+    type = 'session'
+    style = 'diamond'
+
+  [[blocks.segments]]
+    template = ' {{ .Path }}'
+    foreground = 'p:light'
+    powerline_symbol = ''
+    background = 'p:redwood'
+    type = 'path'
+    style = 'powerline'
+
+    [blocks.segments.properties]
+      folder_icon = '..'
+      home_icon = '~'
+      max_depth = 2
+      style = 'agnoster_short'
+
+  [[blocks.segments]]
+    template = ' {{ .HEAD }} {{if .BranchStatus }} {{ .BranchStatus }}{{ end }}'
+    foreground = 'p:redwood'
+    powerline_symbol = ''
+    background = 'p:grey500'
+    type = 'git'
+    style = 'powerline'
+
+    [blocks.segments.properties]
+      branch_icon = ' '
+      cherry_pick_icon = ' '
+      commit_icon = ' '
+      fetch_status = false
+      fetch_upstream_icon = false
+      merge_icon = ' '
+      no_commits_icon = ' '
+      rebase_icon = ' '
+      revert_icon = ' '
+      tag_icon = ' '
+
+  [[blocks.segments]]
+    type = "time"
+    template = "  {{ .CurrentDate | date .Format }} "
+    style = "powerline"
+    foreground = "p:grey800"
+    background = "p:grey100"
+    powerline_symbol = ''
+    [blocks.segments.properties]
+      time_format = "15:04:05"
+
+  [[blocks.segments]]
+    type = "text"
+    style = "plain"
+    foreground = "p:grey800"
+    template = "\n >"
