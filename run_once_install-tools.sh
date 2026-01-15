@@ -50,12 +50,12 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Function to install from GitHub release
+# Function to install from GitHub release (improved with better pattern matching)
 install_from_github() {
     local repo=$1
     local binary_name=$2
     local install_name=${3:-$binary_name}
-    local pattern=${4:-""}
+    local patterns=${4:-""}
     
     if command_exists "$install_name"; then
         log_info "$install_name is already installed"
@@ -67,20 +67,56 @@ install_from_github() {
     # Get latest release info
     local release_info
     release_info=$(curl -s "https://api.github.com/repos/$repo/releases/latest")
+    
+    # Check if API call succeeded
+    if [ -z "$release_info" ] || echo "$release_info" | jq -e '.message' >/dev/null 2>&1; then
+        log_error "Failed to fetch release info from GitHub API"
+        return 1
+    fi
+    
     local download_url=""
     
-    # Try to find matching asset
-    if [ -n "$pattern" ]; then
-        download_url=$(echo "$release_info" | jq -r ".assets[] | select(.name | test(\"$pattern\")) | .browser_download_url" | head -1)
-    else
-        # Try common patterns
-        for arch_pattern in "linux-$ARCH" "linux-$ARCH_ALT" "linux_$ARCH" "linux_$ARCH_ALT" "x86_64-unknown-linux" "aarch64-unknown-linux"; do
-            download_url=$(echo "$release_info" | jq -r ".assets[] | select(.name | contains(\"$arch_pattern\")) | .browser_download_url" | grep -v "\.deb\|\.rpm\|\.pkg\|\.msi\|\.exe\|\.dmg" | head -1)
-            [ -n "$download_url" ] && [ "$download_url" != "null" ] && break
+    # If patterns provided, try them in order
+    if [ -n "$patterns" ]; then
+        # Split patterns by | and try each one
+        IFS='|' read -ra PATTERN_ARRAY <<< "$patterns"
+        for pattern in "${PATTERN_ARRAY[@]}"; do
+            download_url=$(echo "$release_info" | jq -r ".assets[] | select(.name | test(\"$pattern\"; \"i\")) | .browser_download_url" | head -1)
+            if [ -n "$download_url" ] && [ "$download_url" != "null" ]; then
+                break
+            fi
         done
     fi
     
+    # If still no match, try common patterns
     if [ -z "$download_url" ] || [ "$download_url" = "null" ]; then
+        # Build list of architecture patterns to try
+        local arch_patterns=(
+            "${ARCH_ALT}-unknown-linux-musl"
+            "${ARCH_ALT}-unknown-linux-gnu"
+            "${ARCH_ALT}-linux-musl"
+            "${ARCH_ALT}-linux-gnu"
+            "linux-${ARCH_ALT}"
+            "linux_${ARCH_ALT}"
+            "linux-${ARCH}"
+            "linux_${ARCH}"
+        )
+        
+        for arch_pattern in "${arch_patterns[@]}"; do
+            download_url=$(echo "$release_info" | jq -r ".assets[] | select(.name | contains(\"$arch_pattern\")) | .browser_download_url" | \
+                grep -vE "\.(deb|rpm|pkg|msi|exe|dmg|AppImage)$" | head -1)
+            if [ -n "$download_url" ] && [ "$download_url" != "null" ]; then
+                break
+            fi
+        done
+    fi
+    
+    # Last resort: list available assets for debugging
+    if [ -z "$download_url" ] || [ "$download_url" = "null" ]; then
+        log_warn "Could not find matching asset. Available assets:"
+        echo "$release_info" | jq -r ".assets[].name" | head -10 | while read -r asset; do
+            log_warn "  - $asset"
+        done
         log_error "Could not find download URL for $install_name"
         return 1
     fi
@@ -88,17 +124,35 @@ install_from_github() {
     log_info "Downloading from: $download_url"
     local temp_file
     temp_file=$(mktemp)
-    curl -fsSL "$download_url" -o "$temp_file"
+    
+    if ! curl -fsSL "$download_url" -o "$temp_file"; then
+        log_error "Failed to download $install_name"
+        rm -f "$temp_file"
+        return 1
+    fi
     
     # Extract and install based on file type
     local temp_dir
     temp_dir=$(mktemp -d)
+    
     if [[ "$download_url" == *.tar.gz ]] || [[ "$download_url" == *.tgz ]]; then
-        tar -xzf "$temp_file" -C "$temp_dir" 2>/dev/null || true
+        if ! tar -xzf "$temp_file" -C "$temp_dir" 2>/dev/null; then
+            log_error "Failed to extract tar.gz archive"
+            rm -rf "$temp_dir" "$temp_file"
+            return 1
+        fi
     elif [[ "$download_url" == *.tar.xz ]]; then
-        tar -xJf "$temp_file" -C "$temp_dir" 2>/dev/null || true
+        if ! tar -xJf "$temp_file" -C "$temp_dir" 2>/dev/null; then
+            log_error "Failed to extract tar.xz archive"
+            rm -rf "$temp_dir" "$temp_file"
+            return 1
+        fi
     elif [[ "$download_url" == *.zip ]]; then
-        unzip -q "$temp_file" -d "$temp_dir" 2>/dev/null || true
+        if ! unzip -q "$temp_file" -d "$temp_dir" 2>/dev/null; then
+            log_error "Failed to extract zip archive"
+            rm -rf "$temp_dir" "$temp_file"
+            return 1
+        fi
     else
         # Assume it's a binary file
         mv "$temp_file" "$LOCAL_BIN/$install_name"
@@ -111,8 +165,14 @@ install_from_github() {
     # Find the binary in extracted files
     local found_binary
     found_binary=$(find "$temp_dir" -name "$binary_name" -type f 2>/dev/null | head -1)
+    
     if [ -z "$found_binary" ]; then
-        # Try finding any executable
+        # Try finding any executable with similar name
+        found_binary=$(find "$temp_dir" -type f -executable -name "*${binary_name}*" 2>/dev/null | head -1)
+    fi
+    
+    if [ -z "$found_binary" ]; then
+        # Last resort: find any executable
         found_binary=$(find "$temp_dir" -type f -executable 2>/dev/null | head -1)
     fi
     
@@ -122,6 +182,10 @@ install_from_github() {
         log_info "$install_name installed successfully"
     else
         log_error "Could not find binary $binary_name in downloaded archive"
+        log_warn "Contents of archive:"
+        find "$temp_dir" -type f | head -10 | while read -r file; do
+            log_warn "  - $file"
+        done
         rm -rf "$temp_dir" "$temp_file"
         return 1
     fi
@@ -252,7 +316,7 @@ fi
 # 7. Install zellij
 log_info "Installing zellij..."
 if ! command_exists zellij; then
-    install_from_github "zellij-org/zellij" "zellij" "zellij" "zellij-${ARCH_ALT}-unknown-linux-musl\\.tar\\.gz" || {
+    install_from_github "zellij-org/zellij" "zellij" "zellij" "zellij.*${ARCH_ALT}.*linux.*musl.*tar\\.gz|zellij.*${ARCH_ALT}.*linux.*tar\\.gz" || {
         log_warn "Failed to install zellij from GitHub releases"
     }
 else
@@ -266,7 +330,7 @@ install_nvim
 # 9. Install eza
 log_info "Installing eza..."
 if ! command_exists eza; then
-    install_from_github "eza-community/eza" "eza" "eza" "eza_${ARCH_ALT}-unknown-linux-gnu\\.tar\\.gz" || {
+    install_from_github "eza-community/eza" "eza" "eza" "eza.*${ARCH_ALT}.*linux.*gnu.*tar\\.gz|eza.*${ARCH_ALT}.*linux.*tar\\.gz|eza_.*${ARCH_ALT}.*tar\\.gz" || {
         log_warn "Failed to install eza from GitHub releases"
     }
 else
@@ -276,9 +340,15 @@ fi
 # 10. Install zoxide
 log_info "Installing zoxide..."
 if ! command_exists zoxide; then
-    install_from_github "ajeetdsouza/zoxide" "zoxide" "zoxide" "zoxide-.*${ARCH_ALT}-unknown-linux-musl\\.tar\\.gz" || {
-        log_warn "Failed to install zoxide from GitHub releases"
-    }
+    # Try apt first (available in Debian Trixie)
+    if sudo apt-get install -y -qq zoxide 2>/dev/null; then
+        log_info "zoxide installed via apt"
+    else
+        # Fallback to GitHub
+        install_from_github "ajeetdsouza/zoxide" "zoxide" "zoxide" "zoxide.*${ARCH_ALT}.*linux.*musl.*tar\\.gz|zoxide.*${ARCH_ALT}.*linux.*tar\\.gz" || {
+            log_warn "Failed to install zoxide from GitHub releases"
+        }
+    fi
 else
     log_info "zoxide is already installed"
 fi
@@ -286,7 +356,7 @@ fi
 # 11. Install tlrc
 log_info "Installing tlrc..."
 if ! command_exists tlrc; then
-    install_from_github "tldr-pages/tlrc" "tlrc" "tlrc" "tlrc-.*${ARCH_ALT}-unknown-linux-musl\\.tar\\.gz" || {
+    install_from_github "tldr-pages/tlrc" "tlrc" "tlrc" "tlrc.*${ARCH_ALT}.*linux.*musl.*tar\\.gz|tlrc.*${ARCH_ALT}.*linux.*tar\\.gz|tlrc.*linux.*${ARCH_ALT}.*tar\\.gz" || {
         log_warn "Failed to install tlrc from GitHub releases"
     }
 else
