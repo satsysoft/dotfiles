@@ -1,0 +1,7 @@
+# .zprofile - Zsh profile (sourced for login shells)
+# Managed by chezmoi
+
+# Source .zshrc if it exists
+if [ -f ~/.zshrc ]; then
+    source ~/.zshrc
+fi

@@ -1,0 +1,8 @@
+# Chezmoi configuration file
+# This repository is designed to be used on remote servers
+# Usage: chezmoi init --apply https://github.com/yourusername/dotfiles.git
+
+# When this repo is cloned, chezmoi will use it as the source directory
+data:
+  email: ""
+  name: ""

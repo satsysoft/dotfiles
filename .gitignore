@@ -1,0 +1,8 @@
+# Ignore chezmoi state files
+.chezmoi/
+
+# Ignore any local test files
+*.local
+*.bak
+*.swp
+*~

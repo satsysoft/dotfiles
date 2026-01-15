@@ -1,0 +1,190 @@
+# .zshrc - Zsh configuration file
+# Managed by chezmoi
+
+# =============================================================================
+# PATH Configuration (set early)
+# =============================================================================
+export PATH="$HOME/.local/bin:$PATH"
+
+# =============================================================================
+# Zinit Installation & Initialization
+# =============================================================================
+ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
+
+# Install zinit if not present
+if [[ ! -d "$ZINIT_HOME" ]]; then
+    print -P "%F{33}Installing zinit...%f"
+    command mkdir -p "$(dirname $ZINIT_HOME)"
+    command git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME" && \
+        print -P "%F{32}Installation successful.%f" || \
+        print -P "%F{160}Installation failed.%f"
+fi
+
+source "${ZINIT_HOME}/zinit.zsh"
+
+# =============================================================================
+# Zinit Plugins
+# =============================================================================
+
+# Essential plugins (load immediately)
+zinit light zsh-users/zsh-completions
+zinit light zsh-users/zsh-autosuggestions
+
+# Syntax highlighting (must be loaded last among plugins)
+zinit light zsh-users/zsh-syntax-highlighting
+
+# =============================================================================
+# History Configuration
+# =============================================================================
+HISTFILE="${XDG_STATE_HOME:-$HOME/.local/state}/zsh/history"
+HISTSIZE=50000
+SAVEHIST=50000
+
+# Create history directory if it doesn't exist
+[[ -d "${HISTFILE:h}" ]] || mkdir -p "${HISTFILE:h}"
+
+setopt EXTENDED_HISTORY       # Write timestamp to history
+setopt HIST_EXPIRE_DUPS_FIRST # Expire duplicates first
+setopt HIST_IGNORE_DUPS       # Ignore consecutive duplicates
+setopt HIST_IGNORE_ALL_DUPS   # Remove older duplicates
+setopt HIST_IGNORE_SPACE      # Ignore commands starting with space
+setopt HIST_FIND_NO_DUPS      # Don't display duplicates in search
+setopt HIST_REDUCE_BLANKS     # Remove superfluous blanks
+setopt HIST_VERIFY            # Show command before executing from history
+setopt SHARE_HISTORY          # Share history between sessions
+setopt INC_APPEND_HISTORY     # Add commands immediately
+
+# =============================================================================
+# Completion System
+# =============================================================================
+autoload -Uz compinit
+
+# Only regenerate .zcompdump once a day
+if [[ -n ${ZDOTDIR:-$HOME}/.zcompdump(#qN.mh+24) ]]; then
+    compinit
+else
+    compinit -C
+fi
+
+# Completion styling
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'  # Case insensitive
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"    # Colored completions
+zstyle ':completion:*' menu select                          # Interactive menu
+zstyle ':completion:*' special-dirs true                    # Complete . and ..
+zstyle ':completion:*' squeeze-slashes true                 # Treat // as /
+zstyle ':completion:*:*:*:*:descriptions' format '%F{green}-- %d --%f'
+zstyle ':completion:*:messages' format '%F{purple}-- %d --%f'
+zstyle ':completion:*:warnings' format '%F{red}-- no matches --%f'
+
+# =============================================================================
+# Key Bindings
+# =============================================================================
+bindkey -e                           # Emacs key bindings
+bindkey '^[[A' history-search-backward
+bindkey '^[[B' history-search-forward
+bindkey '^[[1;5C' forward-word       # Ctrl+Right
+bindkey '^[[1;5D' backward-word      # Ctrl+Left
+
+# =============================================================================
+# Shell Options
+# =============================================================================
+setopt AUTO_CD              # cd by typing directory name
+setopt AUTO_PUSHD           # Push directories onto stack
+setopt PUSHD_IGNORE_DUPS    # Don't push duplicates
+setopt PUSHD_SILENT         # Don't print directory stack
+setopt CORRECT              # Command correction
+setopt INTERACTIVE_COMMENTS # Allow comments in interactive shell
+setopt NO_BEEP              # No beeping
+
+# =============================================================================
+# Environment Variables
+# =============================================================================
+export EDITOR="${EDITOR:-nvim}"
+export VISUAL="${VISUAL:-$EDITOR}"
+export PAGER="${PAGER:-less}"
+export LESS='-R --mouse --wheel-lines=3'
+
+# =============================================================================
+# Tool Initialization
+# =============================================================================
+
+# zoxide (smart cd replacement)
+if command -v zoxide &>/dev/null; then
+    eval "$(zoxide init zsh)"
+fi
+
+# fzf (fuzzy finder)
+if command -v fzf &>/dev/null; then
+    # Source fzf key bindings and completion
+    [[ -f ~/.fzf.zsh ]] && source ~/.fzf.zsh
+    
+    # fzf configuration
+    export FZF_DEFAULT_OPTS="
+        --height 40%
+        --layout=reverse
+        --border
+        --info=inline
+        --preview-window=right:50%:wrap
+    "
+    
+    # Use fd or find for fzf
+    if command -v fd &>/dev/null; then
+        export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
+        export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+        export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
+    fi
+fi
+
+# oh-my-posh (prompt)
+if command -v oh-my-posh &>/dev/null; then
+    if [[ -f ~/.poshthemes/default.omp.json ]]; then
+        eval "$(oh-my-posh init zsh --config ~/.poshthemes/default.omp.json)"
+    else
+        eval "$(oh-my-posh init zsh)"
+    fi
+fi
+
+# =============================================================================
+# Aliases
+# =============================================================================
+
+# Navigation
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+
+# bat (cat replacement)
+if command -v batcat &>/dev/null; then
+    alias bat='batcat'
+    alias cat='batcat --paging=never'
+elif command -v bat &>/dev/null; then
+    alias cat='bat --paging=never'
+fi
+
+# eza (ls replacement)
+if command -v eza &>/dev/null; then
+    alias ls='eza --group-directories-first'
+    alias ll='eza -l --group-directories-first'
+    alias la='eza -la --group-directories-first'
+    alias lt='eza --tree --level=2'
+    alias tree='eza --tree'
+else
+    alias ll='ls -lh'
+    alias la='ls -lah'
+fi
+
+# ripgrep
+if command -v rg &>/dev/null; then
+    alias grep='rg'
+fi
+
+# Utility aliases
+alias reload='source ~/.zshrc'
+alias path='echo -e ${PATH//:/\\n}'
+alias h='history'
+alias c='clear'
+
+# =============================================================================
+# Local Configuration (not managed by chezmoi)
+# =============================================================================
+[[ -f ~/.zshrc.local ]] && source ~/.zshrc.local

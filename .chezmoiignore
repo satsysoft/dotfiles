@@ -1,0 +1,8 @@
+# Ignore files that shouldn't be managed
+.git
+.gitignore
+README.md
+USAGE.md
+INSTALLATION.md
+.chezmoi.yaml
+.chezmoiignore
