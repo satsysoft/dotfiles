@@ -1,6 +1,8 @@
 # .zshrc - Zsh configuration file
 # Managed by chezmoi
 
+export DEVICE_TYPE="server"
+
 # =============================================================================
 # PATH Configuration (set early)
 # =============================================================================

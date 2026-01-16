@@ -20,6 +20,12 @@ final_space = true
   black = '#323232'
   red = '#0000ff'
   magenta = '#00ff00'
+  display = '#769ff0'
+  audio_controller = '#F5BDE6'
+  audio_amplifier = '#AD6A6C'
+  presence = '#7BC96F'
+  environment = '#394260'
+  server = '#5E81AC'
 
 [secondary_prompt]
   template = ' >'
@@ -68,7 +74,14 @@ final_space = true
 
   [[blocks.segments]]
     template = ' {{ .HEAD }} {{if .BranchStatus }} {{ .BranchStatus }}{{ end }}'
-    foreground = 'p:redwood'
+    foreground_templates = [
+  '{{ if eq .Env.DEVICE_TYPE "display" }}p:display{{ end }}',
+  '{{ if eq .Env.DEVICE_TYPE "presence" }}p:presence{{ end }}',
+  '{{ if eq .Env.DEVICE_TYPE "audio_controller" }}p:audio_controller{{ end }}',
+  '{{ if eq .Env.DEVICE_TYPE "audio_amplifier" }}p:audio_amplifier{{ end }}',
+  '{{ if eq .Env.DEVICE_TYPE "environment" }}p:environment{{ end }}',
+  '{{ if eq .Env.DEVICE_TYPE "server" }}p:server{{ end }}'
+]
     powerline_symbol = ''
     background = 'p:grey500'
     type = 'git'
