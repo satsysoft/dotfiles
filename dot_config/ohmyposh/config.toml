@@ -62,7 +62,14 @@ final_space = true
     template = ' {{ .Path }}'
     foreground = 'p:light'
     powerline_symbol = ''
-    background = 'p:redwood'
+    background_templates = [
+        '{{ if eq .Env.DEVICE_TYPE "display" }}p:display{{ end }}',
+        '{{ if eq .Env.DEVICE_TYPE "presence" }}p:presence{{ end }}',
+        '{{ if eq .Env.DEVICE_TYPE "audio_controller" }}p:audio_controller{{ end }}',
+        '{{ if eq .Env.DEVICE_TYPE "audio_amplifier" }}p:audio_amplifier{{ end }}',
+        '{{ if eq .Env.DEVICE_TYPE "environment" }}p:environment{{ end }}',
+        '{{ if eq .Env.DEVICE_TYPE "server" }}p:server{{ end }}'
+    ]
     type = 'path'
     style = 'powerline'
 
@@ -75,13 +82,13 @@ final_space = true
   [[blocks.segments]]
     template = ' {{ .HEAD }} {{if .BranchStatus }} {{ .BranchStatus }}{{ end }}'
     foreground_templates = [
-  '{{ if eq .Env.DEVICE_TYPE "display" }}p:display{{ end }}',
-  '{{ if eq .Env.DEVICE_TYPE "presence" }}p:presence{{ end }}',
-  '{{ if eq .Env.DEVICE_TYPE "audio_controller" }}p:audio_controller{{ end }}',
-  '{{ if eq .Env.DEVICE_TYPE "audio_amplifier" }}p:audio_amplifier{{ end }}',
-  '{{ if eq .Env.DEVICE_TYPE "environment" }}p:environment{{ end }}',
-  '{{ if eq .Env.DEVICE_TYPE "server" }}p:server{{ end }}'
-]
+        '{{ if eq .Env.DEVICE_TYPE "display" }}p:display{{ end }}',
+        '{{ if eq .Env.DEVICE_TYPE "presence" }}p:presence{{ end }}',
+        '{{ if eq .Env.DEVICE_TYPE "audio_controller" }}p:audio_controller{{ end }}',
+        '{{ if eq .Env.DEVICE_TYPE "audio_amplifier" }}p:audio_amplifier{{ end }}',
+        '{{ if eq .Env.DEVICE_TYPE "environment" }}p:environment{{ end }}',
+        '{{ if eq .Env.DEVICE_TYPE "server" }}p:server{{ end }}'
+    ]
     powerline_symbol = ''
     background = 'p:grey500'
     type = 'git'
