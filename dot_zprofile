@@ -5,3 +5,13 @@
 if [ -f ~/.zshrc ]; then
     source ~/.zshrc
 fi
+
+# Conditional loading of /etc/husar/init if it exists
+if [[ -z $DISPLAY ]] && [[ $(tty) = /dev/tty1 ]] && [[ -f /etc/husar/init ]]; then
+  if [[ $DEBUG -eq 1 ]]; then
+    /usr/bin/xinit /etc/husar/init -- vt1 -nocursor &> ~/log/xinit-debug.log
+  else
+    /usr/bin/xinit /etc/husar/init -- vt1 -nocursor &> /dev/null
+  fi
+fi
+
